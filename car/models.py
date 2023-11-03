@@ -30,3 +30,13 @@ class Car(models.Model):
 
     class Meta:
         verbose_name = '차량'
+
+
+class CarMaintenance(models.Model):
+    car = models.ForeignKey(Car, on_delete=models.CASCADE, related_name='maintenances')
+    maintenance_date = models.DateField()
+    reason = models.TextField()
+    cost = models.FloatField()
+
+    class Meta:
+        verbose_name = '정비'
