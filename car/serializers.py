@@ -29,3 +29,23 @@ class CarSerializer(serializers.ModelSerializer):
         options = CarOption.objects.create(**options_data)
         car = Car.objects.create(car_type=car_type, options=options, **validated_data)
         return car
+
+    def update(self, instance, validated_data):
+        car_type_data = validated_data.pop('car_type', None)
+        options_data = validated_data.pop('options', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if car_type_data is not None:
+            car_type_serializer = CarTypeSerializer(instance.car_type, data=car_type_data, partial=True)
+            if car_type_serializer.is_valid():
+                car_type_serializer.save()
+
+        if options_data is not None:
+            options_serializer = CarOptionSerializer(instance.options, data=options_data, partial=True)
+            if options_serializer.is_valid():
+                options_serializer.save()
+
+        return instance
