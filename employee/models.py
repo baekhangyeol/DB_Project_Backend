@@ -16,5 +16,15 @@ class Employee(models.Model):
     position = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=15)
     email = models.EmailField()
-    bank_account = models.CharField(max_length=100)
-    salary = models.DecimalField(max_digits=10, decimal_places=0, default=30000000)
+    bank_account = models.OneToOneField('Wage', on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = '직원'
+
+
+class Wage(models.Model):
+    bank_account = models.CharField(max_length=100,primary_key= True)
+    amount = models.IntegerField()
+
+    class Meta:
+        verbose_name = '임금'
