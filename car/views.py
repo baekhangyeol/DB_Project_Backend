@@ -1,4 +1,5 @@
 from django.db import transaction, connection
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -120,3 +121,57 @@ def update_car(request, pk):
             return Response({'message': '차량 정보가 수정되었습니다.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+availability_parameter = openapi.Parameter(
+    'availability', openapi.IN_QUERY,
+    description="사용 가능 여부를 필터링합니다. 기본값은 True입니다.",
+    type=openapi.TYPE_BOOLEAN,
+    default=True
+)
+
+
+@swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.', manual_parameters=[availability_parameter])
+@api_view(['GET'])
+def get_available_cars(request):
+    availability = request.query_params.get('availability', 'True')
+    availability = True if availability.lower() == 'true' else False
+
+    query = """
+        SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.mileage, car_car.rental_price, car_car.availability,
+        car_caroption.airconditioner, car_caroption.heatedseat, car_caroption.sunroof, car_caroption.navigation, car_caroption.blackbox
+        FROM car_car
+        INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
+        INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
+        WHERE car_car.availability = %s
+    """
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, [availability])
+            cars = cursor.fetchall()
+
+        cars_list = []
+        for car in cars:
+            car_dict = {
+                'id': car[0],
+                'car_type': {
+                    'brand': car[1],
+                    'size': car[2]
+                },
+                'mileage': car[3],
+                'rental_price': car[4],
+                'availability': car[5],
+                'options': {
+                    'airconditioner': car[6],
+                    'heatedseat': car[7],
+                    'sunroof': car[8],
+                    'navigation': car[9],
+                    'blackbox': car[10]
+                }
+            }
+            cars_list.append(car_dict)
+
+        return Response(cars_list, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
