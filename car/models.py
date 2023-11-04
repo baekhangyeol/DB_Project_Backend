@@ -1,5 +1,7 @@
 from django.db import models
 
+from employee.models import Branch
+
 
 class CarType(models.Model):
     brand = models.CharField(max_length=100, verbose_name='차량 브랜드')
@@ -15,7 +17,11 @@ class CarType(models.Model):
 
 
 class CarOption(models.Model):
-    option_name = models.CharField(max_length=255)
+    airconditioner = models.BooleanField(default=False)
+    heatedseat = models.BooleanField(default=False)
+    sunroof = models.BooleanField(default=False)
+    navigation = models.BooleanField(default=False)
+    blackbox = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = '차량 옵션'
@@ -23,6 +29,7 @@ class CarOption(models.Model):
 
 class Car(models.Model):
     car_type = models.ForeignKey(CarType, on_delete=models.CASCADE)
+    branch = models.ForeignKey(Branch, related_name='cars', on_delete=models.CASCADE, null=True)
     mileage = models.FloatField(default=0.0)
     availability = models.BooleanField(default=True)
     rental_price = models.IntegerField(default=0)
