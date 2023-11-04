@@ -5,8 +5,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Car
-from .serializers import CarSerializer
+from .models import Car, CarMaintenance
+from .serializers import CarSerializer, CarMaintenanceSerializer
 
 
 @swagger_auto_schema(method='post', request_body=CarSerializer, operation_summary='새로운 차량을 등록한다.')
@@ -59,10 +59,8 @@ def create_car(request):
 
             return Response(car_serializer.data, status=status.HTTP_201_CREATED)
         except KeyError as e:
-            # 데이터가 잘못되었을 때의 에러 처리
             return Response({'message': '잘못된 데이터 입력입니다.', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # 그 외의 예외 처리
             return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -175,3 +173,30 @@ def get_available_cars(request):
         return Response(cars_list, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+@swagger_auto_schema(method='get', operation_summary='차량의 정비 이력을 조회한다.')
+@api_view(['GET'])
+def get_car_maintenance(request, pk):
+    query = """
+        SELECT id, car_id, maintenance_date, reason, cost 
+        FROM car_carmaintenance 
+        WHERE car_id = %s
+        """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, [pk])
+            result = cursor.fetchall()
+
+        if not result:
+            return Response({'message': '해당 차량의 정비 이력이 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        columns = [col[0] for col in cursor.description]
+        maintenances = [
+            dict(zip(columns, row))
+            for row in result
+        ]
+
+        return Response(maintenances, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
