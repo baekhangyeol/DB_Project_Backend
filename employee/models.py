@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Branch(models.Model):
-    phone_number = models.CharField(max_length=15)
+    branch_phone_number = models.CharField(max_length=15)
     address = models.TextField()
 
     class Meta:
