@@ -20,3 +20,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
         wage = Wage.objects.create(**wage_data)
         employee = Employee.objects.create(bank_account=wage, **validated_data)
         return employee
+
+
+class BranchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Branch
+        fields = '__all__'
