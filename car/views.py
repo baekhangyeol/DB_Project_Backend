@@ -194,3 +194,63 @@ def get_car_maintenance(request, pk):
         return Response(maintenances, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(method='get', operation_summary='차량의 상세 정보 및 정비 이력을 조회한다.')
+@api_view(['GET'])
+def get_car_details(request, pk):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.mileage, car_car.rental_price, car_car.availability,
+                car_caroption.airconditioner, car_caroption.heatedseat, car_caroption.sunroof, car_caroption.navigation, car_caroption.blackbox,
+                employee_branch.name
+                FROM car_car
+                INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
+                INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
+                INNER JOIN employee_branch ON car_car.branch_id = employee_branch.id
+                WHERE car_car.id = %s
+            """, [pk])
+            car = cursor.fetchone()
+
+            if not car:
+                return Response({'message': '차량을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+            car_details = {
+                'id': car[0],
+                'car_type': {
+                    'brand': car[1],
+                    'size': car[2],
+                    'mileage': car[3],
+                    'rental_price': car[4],
+                    'availability': car[5],
+                    'options': {
+                        'airconditioner': car[6],
+                        'heatedseat': car[7],
+                        'sunroof': car[8],
+                        'navigation': car[9],
+                        'blackbox': car[10]
+                    }
+                },
+                'branch_name': car[11]
+            }
+
+            cursor.execute("""
+                SELECT id, maintenance_date, reason, cost
+                FROM car_carmaintenance
+                WHERE car_id = %s
+            """, [pk])
+            maintenances = cursor.fetchall()
+
+            maintenance_list = [{
+                'id': maintenance[0],
+                'maintenance_date': maintenance[1],
+                'reason': maintenance[2],
+                'cost': maintenance[3]
+            } for maintenance in maintenances]
+
+            car_details['maintenances'] = maintenance_list
+
+        return Response(car_details, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
