@@ -13,7 +13,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Employee
-        fields = ['branch', 'name', 'position', 'phone_number', 'email', 'bank_account']
+        fields = ['name', 'position', 'phone_number', 'email', 'bank_account']
 
     def create(self, validated_data):
         wage_data = validated_data.pop('bank_account')

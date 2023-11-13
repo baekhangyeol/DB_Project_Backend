@@ -11,11 +11,11 @@ from django.db import connection
 @swagger_auto_schema(method='post', request_body=EmployeeSerializer, operation_summary='새로운 직원을 추가한다.')
 @transaction.atomic
 @api_view(['POST'])
-def add_employee(request):
+def add_employee(request, branch_id):
     if request.method == 'POST':
         wage_data = request.data.get('bank_account')
         employee_data = {
-            'branch': request.data.get('branch'),
+            'branch': branch_id,
             'name': request.data.get('name'),
             'position': request.data.get('position'),
             'phone_number': request.data.get('phone_number'),
