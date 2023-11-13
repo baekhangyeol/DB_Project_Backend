@@ -129,7 +129,7 @@ availability_parameter = openapi.Parameter(
 )
 
 
-@swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.')
+@swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.', manual_parameters=[availability_parameter])
 @api_view(['GET'])
 def get_available_cars(request):
     availability = request.query_params.get('availability', 'True')
