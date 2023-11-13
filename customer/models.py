@@ -17,8 +17,7 @@ class Customer(models.Model):
 
 class Rental(models.Model):
     RENTAL_STATUS_CHOICES = [
-        ('reserved', '예약'),
-        ('in_progress', '진행 중'),
+        ('in_progress', '대여'),
         ('completed', '종료')
     ]
 
