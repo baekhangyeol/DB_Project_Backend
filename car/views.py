@@ -129,18 +129,19 @@ availability_parameter = openapi.Parameter(
 )
 
 
-@swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.', manual_parameters=[availability_parameter])
+@swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.')
 @api_view(['GET'])
 def get_available_cars(request):
     availability = request.query_params.get('availability', 'True')
     availability = True if availability.lower() == 'true' else False
 
     query = """
-        SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.mileage, car_car.rental_price, car_car.availability,
-        car_caroption.airconditioner, car_caroption.heatedseat, car_caroption.sunroof, car_caroption.navigation, car_caroption.blackbox
+        SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.availability,
+        employee_branch.name
         FROM car_car
         INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
         INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
+        INNER JOIN employee_branch ON car_car.branch_id = employee_branch.id
         WHERE car_car.availability = %s
     """
 
@@ -155,24 +156,17 @@ def get_available_cars(request):
                 'id': car[0],
                 'car_type': {
                     'brand': car[1],
-                    'size': car[2]
+                    'size': car[2],
+                    'availability': car[3]
                 },
-                'mileage': car[3],
-                'rental_price': car[4],
-                'availability': car[5],
-                'options': {
-                    'airconditioner': car[6],
-                    'heatedseat': car[7],
-                    'sunroof': car[8],
-                    'navigation': car[9],
-                    'blackbox': car[10]
-                }
+                'branch_name': car[4]
             }
             cars_list.append(car_dict)
 
         return Response(cars_list, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
 
 
 @swagger_auto_schema(method='get', operation_summary='차량의 정비 이력을 조회한다.')
