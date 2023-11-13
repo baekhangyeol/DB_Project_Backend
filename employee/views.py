@@ -125,12 +125,12 @@ def add_branch(request):
 
         try:
             branch_insert_query = """
-                INSERT INTO employee_branch (branch_phone_number, address)
-                VALUES (%s, %s)
+                INSERT INTO employee_branch (name, branch_phone_number, address)
+                VALUES (%s, %s, %s)
             """
 
             with connection.cursor() as cursor:
-                cursor.execute(branch_insert_query, [branch_data['branch_phone_number'], branch_data['address']])
+                cursor.execute(branch_insert_query, [branch_data['name'], branch_data['branch_phone_number'], branch_data['address']])
                 cursor.execute("SELECT LAST_INSERT_ID()")
                 branch_id = cursor.fetchone()[0]
 
@@ -177,3 +177,82 @@ def delete_branch(request, pk):
         cursor.execute('DELETE FROM employee_branch WHERE id = %s', [pk])
 
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@swagger_auto_schema(method='get', operation_summary='모든 지점을 조회한다.')
+@api_view(['GET'])
+def get_branch_list(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id, name, branch_phone_number, address FROM employee_branch")
+            branches = cursor.fetchall()
+
+        branch_list = []
+        for branch in branches:
+            branch_dict = {
+                'id': branch[0],
+                'name': branch[1],
+                'branch_phone_number': branch[2],
+                'location': branch[3]
+            }
+            branch_list.append(branch_dict)
+
+        return Response(branch_list, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(method='get', operation_summary='특정 지점의 상세 정보를 조회한다.')
+@api_view(['GET'])
+def get_branch_details(request, pk):
+    try:
+        with connection.cursor() as cursor:
+            # 지점 정보 조회
+            cursor.execute("SELECT id, name, branch_phone_number, address FROM employee_branch WHERE id = %s", [pk])
+            branch = cursor.fetchone()
+
+            if not branch:
+                return Response({'message': '지점을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # 지점에 속한 직원 정보 조회
+            cursor.execute("""
+                SELECT id, name, position
+                FROM employee_employee 
+                WHERE branch_id = %s
+            """, [pk])
+            employees = cursor.fetchall()
+
+            # 지점에 속한 차량 정보 조회
+            cursor.execute("""
+                SELECT car.id, car_type.brand, car_type.size, car.availability
+                FROM car_car as car
+                INNER JOIN car_cartype as car_type ON car.car_type_id = car_type.id
+                WHERE car.branch_id = %s
+            """, [pk])
+            cars = cursor.fetchall()
+
+            # 직원 정보 포맷팅
+            employees_list = [{'employee_id': emp[0], 'name': emp[1], 'position': emp[2]} for emp in employees]
+
+            # 차량 정보 포맷팅
+            cars_list = [{
+                'car_id': car[0],
+                'brand': car[1],
+                'size': car[2],
+                'availability': car[3],
+            } for car in cars]
+
+            branch_details = {
+                'branch_id': branch[0],
+                'name': branch[1],
+                'branch_phone_number': branch[2],
+                'address': branch[3],
+                'employees': employees_list,
+                'cars': cars_list
+            }
+
+        return Response(branch_details, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
