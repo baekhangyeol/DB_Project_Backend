@@ -132,8 +132,10 @@ availability_parameter = openapi.Parameter(
 @swagger_auto_schema(method='get', operation_summary='렌트카 이용 현황을 조회한다.', manual_parameters=[availability_parameter])
 @api_view(['GET'])
 def get_available_cars(request):
-    availability = request.query_params.get('availability', 'True')
-    availability = True if availability.lower() == 'true' else False
+    availability = request.query_params.get('availability', None)
+
+    if availability is not None:
+        availability = True if availability.lower() == 'true' else False
 
     query = """
         SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.availability,
@@ -142,12 +144,17 @@ def get_available_cars(request):
         INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
         INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
         INNER JOIN employee_branch ON car_car.branch_id = employee_branch.id
-        WHERE car_car.availability = %s
     """
+
+    if availability is not None:
+        query += " WHERE car_car.availability = %s"
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(query, [availability])
+            if availability is not None:
+                cursor.execute(query, [availability])
+            else:
+                cursor.execute(query)
             cars = cursor.fetchall()
 
         cars_list = []
@@ -166,7 +173,6 @@ def get_available_cars(request):
         return Response(cars_list, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-
 
 
 @swagger_auto_schema(method='get', operation_summary='차량의 정비 이력을 조회한다.')

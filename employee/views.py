@@ -193,7 +193,7 @@ def get_branch_list(request):
                 'id': branch[0],
                 'name': branch[1],
                 'branch_phone_number': branch[2],
-                'location': branch[3]
+                'address': branch[3]
             }
             branch_list.append(branch_dict)
 
