@@ -5,14 +5,14 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Car, CarMaintenance
-from .serializers import CarSerializer, CarMaintenanceSerializer
+from .models import Car
+from .serializers import CarSerializer
 
 
 @swagger_auto_schema(method='post', request_body=CarSerializer, operation_summary='새로운 차량을 등록한다.')
 @transaction.atomic
 @api_view(['POST'])
-def create_car(request):
+def create_car(request, branch_id):
     if request.method == 'POST':
         data = request.data
         car_type_data = data.get('car_type', {})
@@ -42,11 +42,11 @@ def create_car(request):
                 car_type_id = cursor.lastrowid
 
                 cursor.execute("""
-                    INSERT INTO car_car (car_type_id, branch_id, mileage, availability, rental_price, options_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, [
+                                    INSERT INTO car_car (car_type_id, branch_id, mileage, availability, rental_price, options_id)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                """, [
                     car_type_id,
-                    data.get('branch', 0),
+                    branch_id,
                     data.get('mileage', 0.0),
                     data.get('availability', True),
                     data.get('rental_price', 0),
@@ -90,14 +90,26 @@ def delete_car(request, pk):
 
 @swagger_auto_schema(method='patch', request_body=CarSerializer, operation_summary='차량 정보를 수정한다.')
 @api_view(['PATCH'])
-@transaction.atomic
-def update_car(request, pk):
+def update_car(request, branch_id, pk):
     serializer = CarSerializer(data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     validated_data = serializer.validated_data
     update_fields = []
+    options_update_fields = []
+    type_update_fields = []
+
+    car_options_data = validated_data.pop('options', None)
+    car_type_data = validated_data.pop('car_type', None)
+
+    if car_options_data:
+        for field, value in car_options_data.items():
+            options_update_fields.append(f"{field} = {'TRUE' if value else 'FALSE'}")
+
+    if car_type_data:
+        for field, value in car_type_data.items():
+            type_update_fields.append(f"{field} = '{value}'")
 
     for field, value in validated_data.items():
         if isinstance(value, bool):
@@ -107,18 +119,31 @@ def update_car(request, pk):
         elif isinstance(value, (int, float)):
             update_fields.append(f"{field} = {value}")
 
-    update_set = ', '.join(update_fields)
-    query = f"UPDATE car_car SET {update_set} WHERE id = %s"
-
     with connection.cursor() as cursor:
         try:
-            cursor.execute(query, [pk])
-            if cursor.rowcount == 0:
-                return Response({'message': '차량을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            cursor.execute("SELECT options_id, car_type_id FROM car_car WHERE id = %s", [pk])
+            result = cursor.fetchone()
+            options_id = result[0]
+            car_type_id = result[1]
+
+            if options_update_fields and options_id:
+                options_update_query = f"UPDATE car_caroption SET {', '.join(options_update_fields)} WHERE id = %s"
+                cursor.execute(options_update_query, [options_id])
+
+            if type_update_fields and car_type_id:
+                type_update_query = f"UPDATE car_cartype SET {', '.join(type_update_fields)} WHERE id = %s"
+                cursor.execute(type_update_query, [car_type_id])
+
+            # Car 인스턴스 업데이트
+            if update_fields:
+                update_query = f"UPDATE car_car SET {', '.join(update_fields)} WHERE id = %s AND branch_id = %s"
+                cursor.execute(update_query, [pk, branch_id])
+                if cursor.rowcount == 0:
+                    return Response({'message': '해당 지점에 차량을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
             return Response({'message': '차량 정보가 수정되었습니다.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 availability_parameter = openapi.Parameter(
