@@ -142,9 +142,9 @@ def get_employee(request, pk):
             'phone_number': row[2],
             'email': row[3],
             'branch': {
-                'name': row[4],
-                'phone_number': row[5],
-                'address': row[6]
+                'branch_name': row[4],
+                'branch_phone_number': row[5],
+                'branch_address': row[6]
             },
             'wage': {
                 'bank_account': row[7],
