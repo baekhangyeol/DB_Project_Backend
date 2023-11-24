@@ -18,7 +18,7 @@ class Customer(models.Model):
 class Rental(models.Model):
     RENTAL_STATUS_CHOICES = [
         ('in_progress', '대여'),
-        ('completed', '종료')
+        ('reserved', '예약')
     ]
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='rentals')

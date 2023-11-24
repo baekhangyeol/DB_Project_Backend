@@ -1,43 +1,33 @@
 from django.db import connection
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 
+from customer.models import Customer
 from customer.serializers import CustomerSerializer
 
 
-@swagger_auto_schema(method='get', operation_summary='고객 정보 리스트와 현재 대여 중인 차량 정보를 조회한다.')
+@swagger_auto_schema(method='get', operation_summary='고객 정보 리스트를 출력한다.')
 @api_view(['GET'])
-def get_customers_with_rentals(request):
+def get_customers(request):
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT customer.id, customer.name, customer.phone_number, customer.email,
-                       car_car.id, car_cartype.brand, car_cartype.size, rental.start_date, rental.end_date
+                SELECT customer.id, customer.name, customer.phone_number, customer.email
                 FROM customer_customer AS customer
-                LEFT JOIN customer_rental AS rental ON customer.id = rental.customer_id AND rental.status = 'in_progress'
-                LEFT JOIN car_car ON rental.car_id = car_car.id
-                LEFT JOIN car_cartype ON car_car.car_type_id = car_cartype.id
             """)
             customers = cursor.fetchall()
 
         customer_list = []
         for customer in customers:
-            rental_info = {
-                'car_id': customer[4],
-                'brand': customer[5],
-                'size': customer[6],
-                'start_date': customer[7],
-                'end_date': customer[8]
-            } if customer[4] else None
-
             customer_dict = {
                 'id': customer[0],
                 'name': customer[1],
                 'phone_number': customer[2],
-                'email': customer[3],
-                'rental_car': rental_info
+                'email': customer[3]
             }
             customer_list.append(customer_dict)
 
@@ -87,3 +77,48 @@ def delete_customer(request, pk):
         return Response({'message': '고객이 삭제되었습니다.'}, status=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(method='get', operation_summary='특정 고객을 조회한다.')
+@api_view(['GET'])
+def get_customer(request, pk):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT customer.id, customer.name, customer.phone_number, customer.email, 
+                       customer.driver_license_number, customer.join_date,
+                       rental.id, rental.start_date, rental.end_date, rental.total_amount, rental.payment_method, rental.status
+                FROM customer_customer AS customer
+                LEFT JOIN customer_rental AS rental ON customer.id = rental.customer_id
+                WHERE customer.id = %s
+            """, [pk])
+            rows = cursor.fetchall()
+
+        if not rows:
+            return JsonResponse({'error': 'Customer not found'}, status=404)
+
+        customer_data = {
+            'id': rows[0][0],
+            'name': rows[0][1],
+            'phone_number': rows[0][2],
+            'email': rows[0][3],
+            'driver_license': rows[0][4],
+            'join_date': rows[0][5],
+            'rentals': []
+        }
+
+        for row in rows:
+            if row[6]:
+                rental_data = {
+                    'rental_id': row[6],
+                    'start_date': row[7],
+                    'end_date': row[8],
+                    'total_amount': row[9],
+                    'payment_method': row[10],
+                    'status': row[11]
+                }
+                customer_data['rentals'].append(rental_data)
+
+        return JsonResponse(customer_data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
