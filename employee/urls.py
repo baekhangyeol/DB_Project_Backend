@@ -9,5 +9,6 @@ urlpatterns = [
     path('branch/update/<int:pk>', update_branch, name='update-branch'),
     path('branch/delete/<int:pk>', delete_branch, name='delete-branch'),
     path('branch', get_branch_list, name='branch-list'),
-    path('branch/<int:pk>', get_branch_details, name='branch-detail')
+    path('branch/<int:pk>', get_branch_details, name='branch-detail'),
+    path('detail/<int:pk>', get_employee, name='get_employee')
 ]

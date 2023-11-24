@@ -116,6 +116,48 @@ def delete_employee(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@swagger_auto_schema(method='get', operation_summary='직원의 상세 정보를 조회한다.')
+@transaction.atomic()
+@api_view(['GET'])
+def get_employee(request, pk):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT employee.name, employee.position, employee.phone_number, employee.email,
+                       branch.name, branch.branch_phone_number, branch.address,
+                       wage.bank_account, wage.amount
+                FROM employee_employee AS employee
+                LEFT JOIN employee_branch AS branch ON employee.branch_id = branch.id
+                LEFT JOIN employee_wage AS wage ON employee.bank_account_id = wage.bank_account
+                WHERE employee.id = %s
+            """, [pk])
+            row = cursor.fetchone()
+
+        if not row:
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+
+        employee_data = {
+            'name': row[0],
+            'position': row[1],
+            'phone_number': row[2],
+            'email': row[3],
+            'branch': {
+                'name': row[4],
+                'phone_number': row[5],
+                'address': row[6]
+            },
+            'wage': {
+                'bank_account': row[7],
+                'amount': row[8]
+            }
+        }
+
+        return JsonResponse(employee_data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+
 @swagger_auto_schema(method='post', request_body=BranchSerializer, operation_summary='지점 추가')
 @transaction.atomic()
 @api_view(['POST'])
