@@ -79,7 +79,6 @@ def delete_customer(request, pk):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@swagger_auto_schema(method='get', operation_summary='특정 고객을 조회한다.')
 @api_view(['GET'])
 def get_customer(request, pk):
     try:
@@ -87,9 +86,12 @@ def get_customer(request, pk):
             cursor.execute("""
                 SELECT customer.id, customer.name, customer.phone_number, customer.email, 
                        customer.driver_license_number, customer.join_date,
-                       rental.id, rental.start_date, rental.end_date, rental.total_amount, rental.payment_method, rental.status
+                       rental.id, rental.start_date, rental.end_date, rental.total_amount, rental.payment_method, rental.status,
+                       car.id, car_type.brand
                 FROM customer_customer AS customer
                 LEFT JOIN customer_rental AS rental ON customer.id = rental.customer_id
+                LEFT JOIN car_car AS car ON rental.car_id = car.id
+                LEFT JOIN car_cartype AS car_type ON car.car_type_id = car_type.id
                 WHERE customer.id = %s
             """, [pk])
             rows = cursor.fetchall()
@@ -115,7 +117,11 @@ def get_customer(request, pk):
                     'end_date': row[8],
                     'total_amount': row[9],
                     'payment_method': row[10],
-                    'status': row[11]
+                    'status': row[11],
+                    'car': {
+                        'car_id': row[12],
+                        'brand': row[13]
+                    }
                 }
                 customer_data['rentals'].append(rental_data)
 
