@@ -19,7 +19,7 @@ class CarOptionSerializer(serializers.ModelSerializer):
         fields = ['id', 'airconditioner', 'heatedseat', 'sunroof', 'navigation', 'blackbox']
 
 
-class CarSerializer(serializers.ModelSerializer):
+class CarCreateSerializer(serializers.ModelSerializer):
     car_type = CarTypeSerializer()
     options = CarOptionSerializer()
 
@@ -34,6 +34,14 @@ class CarSerializer(serializers.ModelSerializer):
         options = CarOption.objects.create(**options_data)
         car = Car.objects.create(car_type=car_type, options=options, **validated_data)
         return car
+
+class CarUpdateSerializer(serializers.ModelSerializer):
+    car_type = CarTypeSerializer()
+    options = CarOptionSerializer()
+
+    class Meta:
+        model = Car
+        fields = ['id', 'car_type', 'branch', 'mileage', 'availability', 'rental_price', 'options']
 
     def update(self, instance, validated_data):
         car_type_data = validated_data.pop('car_type', None)

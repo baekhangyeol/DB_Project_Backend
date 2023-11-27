@@ -6,10 +6,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .models import Car
-from .serializers import CarSerializer
+from .serializers import CarCreateSerializer, CarUpdateSerializer
 
 
-@swagger_auto_schema(method='post', request_body=CarSerializer, operation_summary='새로운 차량을 등록한다.')
+@swagger_auto_schema(method='post', request_body=CarCreateSerializer, operation_summary='새로운 차량을 등록한다.')
 @transaction.atomic
 @api_view(['POST'])
 def create_car(request, branch_id):
@@ -55,7 +55,7 @@ def create_car(request, branch_id):
                 car_id = cursor.lastrowid
 
             car_instance = Car.objects.get(id=car_id)
-            car_serializer = CarSerializer(car_instance)
+            car_serializer = CarCreateSerializer(car_instance)
 
             return Response(car_serializer.data, status=status.HTTP_201_CREATED)
         except KeyError as e:
@@ -88,10 +88,10 @@ def delete_car(request, pk):
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@swagger_auto_schema(method='patch', request_body=CarSerializer, operation_summary='차량 정보를 수정한다.')
+@swagger_auto_schema(method='patch', request_body=CarUpdateSerializer, operation_summary='차량 정보를 수정한다.')
 @api_view(['PATCH'])
-def update_car(request, branch_id, pk):
-    serializer = CarSerializer(data=request.data, partial=True)
+def update_car(request, pk):
+    serializer = CarUpdateSerializer(data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -102,6 +102,7 @@ def update_car(request, branch_id, pk):
 
     car_options_data = validated_data.pop('options', None)
     car_type_data = validated_data.pop('car_type', None)
+    branch_data = validated_data.pop('branch', None)
 
     if car_options_data:
         for field, value in car_options_data.items():
@@ -111,6 +112,10 @@ def update_car(request, branch_id, pk):
         for field, value in car_type_data.items():
             type_update_fields.append(f"{field} = '{value}'")
 
+    if branch_data is not None:
+        branch_id = branch_data.id if hasattr(branch_data, 'id') else branch_data
+        update_fields.append(f"branch_id = {branch_id}")
+
     for field, value in validated_data.items():
         if isinstance(value, bool):
             update_fields.append(f"{field} = {'TRUE' if value else 'FALSE'}")
@@ -118,6 +123,10 @@ def update_car(request, branch_id, pk):
             update_fields.append(f"{field} = '{value}'")
         elif isinstance(value, (int, float)):
             update_fields.append(f"{field} = {value}")
+        else:
+            # 추가된 예외 처리
+            return Response({'error': f'Unsupported data type for field {field}: {type(value)}'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
     with connection.cursor() as cursor:
         try:
@@ -134,15 +143,16 @@ def update_car(request, branch_id, pk):
                 type_update_query = f"UPDATE car_cartype SET {', '.join(type_update_fields)} WHERE id = %s"
                 cursor.execute(type_update_query, [car_type_id])
 
-            # Car 인스턴스 업데이트
             if update_fields:
-                update_query = f"UPDATE car_car SET {', '.join(update_fields)} WHERE id = %s AND branch_id = %s"
-                cursor.execute(update_query, [pk, branch_id])
+                update_query = f"UPDATE car_car SET {', '.join(update_fields)} WHERE id = %s"
+                print("Executing Update Query:", update_query)  # Debugging
+                cursor.execute(update_query, [pk])
                 if cursor.rowcount == 0:
                     return Response({'message': '해당 지점에 차량을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
             return Response({'message': '차량 정보가 수정되었습니다.'}, status=status.HTTP_200_OK)
         except Exception as e:
+            print("Error:", str(e))  # Debugging
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
