@@ -1,7 +1,6 @@
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from drf_yasg.utils import swagger_auto_schema
-from mysql.connector import IntegrityError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,7 +13,7 @@ from django.db import connection
 @api_view(['POST'])
 def add_employee(request, branch_id):
     if request.method == 'POST':
-        wage_data = request.data.get('bank_account')
+        wage_data = request.data.get('wage')
         employee_data = {
             'branch': branch_id,
             'name': request.data.get('name'),
@@ -32,7 +31,7 @@ def add_employee(request, branch_id):
                 cursor.execute(wage_insert_query, [wage_data['bank_account'], wage_data['amount']])
 
             employee_insert_query = """
-                INSERT INTO employee_employee (branch_id, name, position, phone_number, email, bank_account_id)
+                INSERT INTO employee_employee (branch_id, name, position, phone_number, email, wage_id)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """
             with connection.cursor() as cursor:
@@ -60,37 +59,40 @@ def add_employee(request, branch_id):
 @transaction.atomic
 @api_view(['PATCH'])
 def update_employee(request, pk):
-
     employee_data = request.data
-    wage_data = employee_data.pop('bank_account', None)
+    wage_data = employee_data.pop('wage', None)
     branch_id = employee_data.pop('branch', None)
-
-    with connection.cursor() as cursor:
-        if branch_id is not None:
-            cursor.execute('SELECT id FROM employee_branch WHERE id = %s', [branch_id])
-            if not cursor.fetchone():
-                return JsonResponse({'error': 'Branch not found'}, status=status.HTTP_404_NOT_FOUND)
-
-            cursor.execute('UPDATE employee_employee SET branch_id = %s WHERE id = %s', [branch_id, pk])
-
-        if employee_data:
-            update_statements = ', '.join([f"{key} = %s" for key in employee_data.keys()])
-            update_values = list(employee_data.values()) + [pk]
-            cursor.execute(f'UPDATE employee_employee SET {update_statements} WHERE id = %s', update_values)
-
-        if wage_data:
-            wage_data.pop('bank_account', None)
-            update_wage_statements = ', '.join([f"{key} = %s" for key in wage_data.keys()])
-            update_wage_values = list(wage_data.values())
-            cursor.execute(
-                f'UPDATE employee_wage SET {update_wage_statements} WHERE bank_account = (SELECT bank_account_id FROM employee_employee WHERE id = %s)',
-                update_wage_values + [pk])
 
     try:
         updated_employee = Employee.objects.get(pk=pk)
     except Employee.DoesNotExist:
         return JsonResponse({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    with transaction.atomic():
+        if branch_id is not None:
+            try:
+                branch = Branch.objects.get(pk=branch_id)
+                updated_employee.branch = branch
+                updated_employee.save()
+            except Branch.DoesNotExist:
+                return JsonResponse({'error': 'Branch not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if employee_data:
+            for key, value in employee_data.items():
+                setattr(updated_employee, key, value)
+            updated_employee.save()
+
+        if wage_data:
+            existing_wage = updated_employee.wage
+            if existing_wage:
+                existing_wage.bank_account = wage_data.get('bank_account', existing_wage.bank_account)
+                existing_wage.amount = wage_data.get('amount', existing_wage.amount)
+                existing_wage.save()
+            else:
+                new_wage = Wage.objects.create(bank_account=wage_data['bank_account'], amount=wage_data['amount'])
+                updated_employee.wage = new_wage
+
+    updated_employee.refresh_from_db()
     employee_serializer = EmployeeSerializer(updated_employee)
     return JsonResponse(employee_serializer.data, status=status.HTTP_200_OK)
 
@@ -102,17 +104,17 @@ def delete_employee(request, pk):
     from django.db import connection
 
     with connection.cursor() as cursor:
-        cursor.execute('SELECT bank_account_id FROM employee_employee WHERE id = %s', [pk])
+        cursor.execute('SELECT wage_id FROM employee_employee WHERE id = %s', [pk])
         result = cursor.fetchone()
 
         if result is None:
             return JsonResponse({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        bank_account_id = result[0]
+        wage_id = result[0]
 
         cursor.execute('DELETE FROM employee_employee WHERE id = %s', [pk])
 
-        cursor.execute('DELETE FROM employee_wage WHERE bank_account = %s', [bank_account_id])
+        cursor.execute('DELETE FROM employee_wage WHERE bank_account = %s', [wage_id])
 
     return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -129,7 +131,7 @@ def get_employee(request, pk):
                        wage.bank_account, wage.amount
                 FROM employee_employee AS employee
                 LEFT JOIN employee_branch AS branch ON employee.branch_id = branch.id
-                LEFT JOIN employee_wage AS wage ON employee.bank_account_id = wage.bank_account
+                LEFT JOIN employee_wage AS wage ON employee.wage_id = wage.bank_account
                 WHERE employee.id = %s
             """, [pk])
             row = cursor.fetchone()
