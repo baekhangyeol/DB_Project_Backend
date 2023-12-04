@@ -173,7 +173,7 @@ def get_available_cars(request):
 
     query = """
         SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.availability,
-        employee_branch.id
+        employee_branch.name
         FROM car_car
         INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
         INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
@@ -200,7 +200,7 @@ def get_available_cars(request):
                     'size': car[2],
                     'availability': car[3]
                 },
-                'branch_id': car[4]
+                'branch_name': car[4]
             }
             cars_list.append(car_dict)
 
@@ -244,7 +244,7 @@ def get_car_details(request, pk):
             cursor.execute("""
                 SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.mileage, car_car.rental_price, car_car.availability,
                 car_caroption.airconditioner, car_caroption.heatedseat, car_caroption.sunroof, car_caroption.navigation, car_caroption.blackbox,
-                employee_branch.name
+                employee_branch.id
                 FROM car_car
                 INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
                 INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
@@ -272,7 +272,7 @@ def get_car_details(request, pk):
                         'blackbox': car[10]
                     }
                 },
-                'branch_name': car[11]
+                'branch_id': car[11]
             }
 
             cursor.execute("""
