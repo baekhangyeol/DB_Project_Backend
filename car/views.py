@@ -124,7 +124,6 @@ def update_car(request, pk):
         elif isinstance(value, (int, float)):
             update_fields.append(f"{field} = {value}")
         else:
-            # 추가된 예외 처리
             return Response({'error': f'Unsupported data type for field {field}: {type(value)}'},
                             status=status.HTTP_400_BAD_REQUEST)
 
@@ -145,14 +144,14 @@ def update_car(request, pk):
 
             if update_fields:
                 update_query = f"UPDATE car_car SET {', '.join(update_fields)} WHERE id = %s"
-                print("Executing Update Query:", update_query)  # Debugging
+                print("Executing Update Query:", update_query)
                 cursor.execute(update_query, [pk])
                 if cursor.rowcount == 0:
                     return Response({'message': '해당 지점에 차량을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
             return Response({'message': '차량 정보가 수정되었습니다.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            print("Error:", str(e))  # Debugging
+            print("Error:", str(e))
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -174,7 +173,7 @@ def get_available_cars(request):
 
     query = """
         SELECT car_car.id, car_cartype.brand, car_cartype.size, car_car.availability,
-        employee_branch.name
+        employee_branch.id
         FROM car_car
         INNER JOIN car_cartype ON car_car.car_type_id = car_cartype.id
         INNER JOIN car_caroption ON car_car.options_id = car_caroption.id
@@ -201,7 +200,7 @@ def get_available_cars(request):
                     'size': car[2],
                     'availability': car[3]
                 },
-                'branch_name': car[4]
+                'branch_id': car[4]
             }
             cars_list.append(car_dict)
 
