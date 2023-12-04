@@ -56,7 +56,7 @@ def add_employee(request, branch_id):
             return JsonResponse({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@swagger_auto_schema(method='put', request_body=EmployeeSerializer, operation_summary='기존 직원 정보를 수정한다.')
+@swagger_auto_schema(method='patch', request_body=EmployeeSerializer, operation_summary='기존 직원 정보를 수정한다.')
 @transaction.atomic
 @api_view(['PATCH'])
 def update_employee(request, pk):
