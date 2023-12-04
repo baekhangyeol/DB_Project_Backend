@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.http import JsonResponse
 from drf_yasg.utils import swagger_auto_schema
+from mysql.connector import IntegrityError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -57,7 +58,7 @@ def add_employee(request, branch_id):
 
 @swagger_auto_schema(method='put', request_body=EmployeeSerializer, operation_summary='기존 직원 정보를 수정한다.')
 @transaction.atomic
-@api_view(['PUT'])
+@api_view(['PATCH'])
 def update_employee(request, pk):
 
     employee_data = request.data
@@ -211,12 +212,18 @@ def update_branch(request, pk):
 def delete_branch(request, pk):
     with connection.cursor() as cursor:
         cursor.execute('SELECT id FROM employee_branch WHERE id = %s', [pk])
-        result = cursor.fetchone()
+        employee_result = cursor.fetchone()
 
-        if result is None:
-            return JsonResponse({'error': '지점을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+        cursor.execute('SELECT id FROM employee_branch WHERE id = %s', [pk])
+        vehicle_result = cursor.fetchone()
 
-        cursor.execute('DELETE FROM employee_branch WHERE id = %s', [pk])
+        if employee_result or vehicle_result:
+            return JsonResponse({'error': '지점에 등록된 직원 또는 차량이 있어서 삭제할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cursor.execute('DELETE FROM employee_branch WHERE id = %s', [pk])
+        except IntegrityError:
+            return JsonResponse({'error': '다른 사용자가 동시에 지점을 삭제했습니다.'}, status=status.HTTP_409_CONFLICT)
 
     return Response(status=status.HTTP_204_NO_CONTENT)
 
