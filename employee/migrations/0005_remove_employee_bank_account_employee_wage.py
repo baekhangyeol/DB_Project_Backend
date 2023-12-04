@@ -11,43 +11,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='Employee',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('position', models.CharField(max_length=100)),
-                ('phone_number', models.CharField(max_length=15)),
-                ('email', models.EmailField(max_length=254)),
-                ('bank_account', models.CharField(max_length=100)),
-                ('salary', models.DecimalField(decimal_places=0, default=30000000, max_digits=10)),
-                ('branch', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='employees',
-                                             to='employee.branch')),
-            ],
-        ),
-        migrations.CreateModel(
-            name='Wage',
-            fields=[
-                ('bank_account', models.CharField(max_length=100, primary_key=True, serialize=False)),
-                ('amount', models.IntegerField()),
-            ],
-            options={
-                'verbose_name': '임금',
-            },
-        ),
-        migrations.AlterModelOptions(
-            name='employee',
-            options={'verbose_name': '직원'},
-        ),
-        migrations.RemoveField(
-            model_name='employee',
-            name='salary',
-        ),
-        migrations.AlterField(
-            model_name='employee',
-            name='bank_account',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='employee.wage'),
-        ),
         migrations.RemoveField(
             model_name='employee',
             name='bank_account',
