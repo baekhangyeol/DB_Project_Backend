@@ -1,4 +1,4 @@
-from django.db import connection
+from django.db import connection, IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
@@ -89,16 +89,27 @@ def delete_customer(request, pk):
     try:
         with connection.cursor() as cursor:
             # 현재 대여 중인 차량이 있는지 확인
-            cursor.execute("SELECT id FROM customer_rental WHERE customer_id = %s AND status IN ('reserved', 'in_progress')", [pk])
-            if cursor.fetchone():
-                return Response({'message': '차량 대여 중인 고객은 삭제할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            cursor.execute("SELECT id, status FROM customer_rental WHERE customer_id = %s", [pk])
+            rental_info = cursor.fetchone()
 
-            # 고객 삭제
-            cursor.execute("DELETE FROM customer_customer WHERE id = %s", [pk])
-            if cursor.rowcount == 0:
-                return Response({'message': '고객을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            if rental_info:
+                rental_id, rental_status = rental_info
+                if rental_status in ('reserved', 'in_progress'):
+                    return Response({'message': '차량 대여 중인 고객은 삭제할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'message': '고객이 삭제되었습니다.'}, status=status.HTTP_204_NO_CONTENT)
+                if rental_status == 'returned':
+                    # customer_rental 테이블에서 해당 customer_id를 가진 레코드 삭제
+                    cursor.execute("DELETE FROM customer_rental WHERE customer_id = %s", [pk])
+
+                    try:
+                        # customer_customer 테이블에서 해당 id를 가진 레코드 삭제
+                        cursor.execute("DELETE FROM customer_customer WHERE id = %s", [pk])
+                    except IntegrityError:
+                        return Response({'message': '고객을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+                    return Response({'message': '고객이 삭제되었습니다.'}, status=status.HTTP_204_NO_CONTENT)
+
+        return Response({'message': '고객 삭제는 \'returned\' 상태에서만 가능합니다.'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -108,7 +119,7 @@ def get_customer(request, pk):
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT customer.id, customer.name, customer.phone_number, customer.email, 
+                SELECT customer.id, customer.name, customer.phone_number, customer.email,
                        customer.driver_license_number, customer.join_date,
                        rental.id, rental.start_date, rental.end_date, rental.total_amount, rental.payment_method, rental.status,
                        car.id, car_type.brand
