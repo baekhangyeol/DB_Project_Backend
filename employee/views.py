@@ -214,18 +214,16 @@ def update_branch(request, pk):
 def delete_branch(request, pk):
     with connection.cursor() as cursor:
         cursor.execute('SELECT id FROM employee_branch WHERE id = %s', [pk])
-        employee_result = cursor.fetchone()
+        result = cursor.fetchone()
 
-        cursor.execute('SELECT id FROM employee_branch WHERE id = %s', [pk])
-        vehicle_result = cursor.fetchone()
+        if result is None:
+            return JsonResponse({'error': '지점을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if employee_result or vehicle_result:
-            return JsonResponse({'error': '지점에 등록된 직원 또는 차량이 있어서 삭제할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        employee_count = Employee.objects.filter(branch_id=pk).count()
+        if employee_count > 0:
+            return JsonResponse({'error': '지점에 등록된 직원이 있어서 삭제할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            cursor.execute('DELETE FROM employee_branch WHERE id = %s', [pk])
-        except IntegrityError:
-            return JsonResponse({'error': '다른 사용자가 동시에 지점을 삭제했습니다.'}, status=status.HTTP_409_CONFLICT)
+        cursor.execute('DELETE FROM employee_branch WHERE id = %s', [pk])
 
     return Response(status=status.HTTP_204_NO_CONTENT)
 
