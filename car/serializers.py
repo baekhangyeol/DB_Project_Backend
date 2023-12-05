@@ -62,3 +62,8 @@ class CarUpdateSerializer(serializers.ModelSerializer):
                 options_serializer.save()
 
         return instance
+
+class CarMaintenanceCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CarMaintenance
+        exclude = ['car']

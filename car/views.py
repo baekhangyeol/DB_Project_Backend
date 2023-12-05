@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .models import Car
-from .serializers import CarCreateSerializer, CarUpdateSerializer
+from .serializers import CarCreateSerializer, CarUpdateSerializer, CarMaintenanceCreateSerializer
 
 
 @swagger_auto_schema(method='post', request_body=CarCreateSerializer, operation_summary='새로운 차량을 등록한다.')
@@ -294,3 +294,46 @@ def get_car_details(request, pk):
         return Response(car_details, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(method='post', request_body=CarMaintenanceCreateSerializer, operation_summary='새로운 차량 정비 이력을 생성한다.')
+@api_view(['POST'])
+def create_car_maintenance(request, pk):
+    data = request.data
+    maintenance_date = data.get('maintenance_date')
+    reason = data.get('reason')
+    cost = data.get('cost')
+
+    try:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO car_carmaintenance (car_id, maintenance_date, reason, cost)
+                    VALUES (%s, %s, %s, %s)
+                """, [pk, maintenance_date, reason, cost])
+                maintenance_id = cursor.lastrowid
+
+            return Response({
+                'id': maintenance_id,
+                'maintenance_date': maintenance_date,
+                'reason': reason,
+                'cost': cost,
+            }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        transaction.rollback()
+        return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@swagger_auto_schema(method='delete', operation_summary='차량 정비 이력을 삭제한다.')
+@api_view(['DELETE'])
+def delete_car_maintenance(request, pk):
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM car_carmaintenance WHERE id = %s", [pk])
+            if cursor.rowcount == 0:
+                return Response({'message': '정비 이력을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'message': '정비 이력이 삭제되었습니다.'}, status=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        transaction.rollback()
+        return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
