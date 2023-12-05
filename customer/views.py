@@ -9,6 +9,30 @@ from rest_framework import status
 from customer.models import Customer
 from customer.serializers import CustomerSerializer
 
+@swagger_auto_schema(method='post', request_body=CustomerSerializer, operation_summary="고객을 등록한다.")
+@api_view(['POST'])
+def add_customers(request):
+    if request.method == 'POST':
+        data = request.data
+
+        name = data.get('name')
+        phone_number = data.get('phone_number')
+        email = data.get('email')
+        driver_license_number = data.get('driver_license_number')
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO customer_customer (name, phone_number, email, driver_license_number, join_date) "
+                "VALUES (%s, %s, %s, %s, NOW())",
+                [name, phone_number, email, driver_license_number]
+            )
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            customer_id = cursor.fetchone()[0]
+
+            customer = Customer.objects.get(pk=customer_id)
+            customer_serializer = CustomerSerializer(customer)
+
+        return JsonResponse(customer_serializer.data, status=status.HTTP_201_CREATED)
 
 @swagger_auto_schema(method='get', operation_summary='고객 정보 리스트를 출력한다.')
 @api_view(['GET'])
