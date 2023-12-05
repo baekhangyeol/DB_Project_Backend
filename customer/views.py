@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import connection, IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -6,8 +8,9 @@ from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 
-from customer.models import Customer
-from customer.serializers import CustomerSerializer
+from customer.models import Customer, Rental
+from customer.serializers import CustomerSerializer, RentalSerializer
+
 
 @swagger_auto_schema(method='post', request_body=CustomerSerializer, operation_summary="고객을 등록한다.")
 @api_view(['POST'])
@@ -114,6 +117,7 @@ def delete_customer(request, pk):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@swagger_auto_schema(method='get', operation_summary='고객의 상세 정보를 조회한다.')
 @api_view(['GET'])
 def get_customer(request, pk):
     try:
@@ -163,3 +167,58 @@ def get_customer(request, pk):
         return JsonResponse(customer_data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@swagger_auto_schema(method='patch', request_body=RentalSerializer, operation_summary='대여 정보를 수정한다.')
+@api_view(['PATCH'])
+def update_rental(request, rental_id):
+    try:
+        data = request.data
+        update_fields = []
+
+        serializer = RentalSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+
+        for field, value in validated_data.items():
+            if field == 'car':
+                value = value.id
+                field = 'car_id'
+
+            if field in ['start_date', 'end_date']:
+                if isinstance(value, datetime):
+                    value = value.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+                    value = value.strftime('%Y-%m-%d %H:%M:%S')
+
+            # SQL 구문 업데이트
+            if isinstance(value, str):
+                update_fields.append(f"{field} = '{value}'")
+            else:
+                update_fields.append(f"{field} = {value}")
+
+        update_set = ', '.join(update_fields)
+
+        with connection.cursor() as cursor:
+            cursor.execute(f"UPDATE customer_rental SET {update_set} WHERE id = %s", [rental_id])
+
+            if cursor.rowcount == 0:
+                return Response({'message': '대여 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+            cursor.execute(f"SELECT * FROM customer_rental WHERE id = %s", [rental_id])
+            updated_data = dictfetchall(cursor)
+
+        return Response(updated_data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def dictfetchall(cursor):
+    columns = [col[0] for col in cursor.description]
+    return [
+        dict(zip(columns, row))
+        for row in cursor.fetchall()
+    ]
