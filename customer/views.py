@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import status as status
 from django.db import connection, IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -173,46 +174,23 @@ def get_customer(request, pk):
 @api_view(['PATCH'])
 def update_rental(request, rental_id):
     try:
-        data = request.data
-        update_fields = []
-
-        serializer = RentalSerializer(data=data)
+        serializer = RentalSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        validated_data = serializer.validated_data
+        # status 필드 추출
+        updated_status = serializer.validated_data.get('status')
 
-        for field, value in validated_data.items():
-            if field == 'car':
-                value = value.id
-                field = 'car_id'
+        # 데이터베이스 업데이트
+        Rental.objects.filter(id=rental_id).update(status=updated_status)
 
-            if field in ['start_date', 'end_date']:
-                if isinstance(value, datetime):
-                    value = value.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
-                    value = value.strftime('%Y-%m-%d %H:%M:%S')
+        # 업데이트된 레코드 정보 확인
+        updated_rental = Rental.objects.get(id=rental_id)
 
-            # SQL 구문 업데이트
-            if isinstance(value, str):
-                update_fields.append(f"{field} = '{value}'")
-            else:
-                update_fields.append(f"{field} = {value}")
+        return Response({'status': updated_rental.status}, status=status.HTTP_200_OK)
 
-        update_set = ', '.join(update_fields)
-
-        with connection.cursor() as cursor:
-            cursor.execute(f"UPDATE customer_rental SET {update_set} WHERE id = %s", [rental_id])
-
-            if cursor.rowcount == 0:
-                return Response({'message': '대여 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
-
-            cursor.execute(f"SELECT * FROM customer_rental WHERE id = %s", [rental_id])
-            updated_data = dictfetchall(cursor)
-
-        return Response(updated_data, status=status.HTTP_200_OK)
-
+    except Rental.DoesNotExist:
+        return Response({'message': '대여 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
