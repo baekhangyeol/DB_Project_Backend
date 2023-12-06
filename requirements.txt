@@ -65,3 +65,5 @@ urllib3==1.26.16
 users==1.0.dev0
 Werkzeug==2.3.6
 wsproto==1.2.0
+
+status~=0.2.5

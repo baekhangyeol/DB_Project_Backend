@@ -1,9 +1,6 @@
-from datetime import datetime
-
 import status as status
 from django.db import connection, IntegrityError
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
@@ -178,13 +175,10 @@ def update_rental(request, rental_id):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # status 필드 추출
         updated_status = serializer.validated_data.get('status')
 
-        # 데이터베이스 업데이트
         Rental.objects.filter(id=rental_id).update(status=updated_status)
 
-        # 업데이트된 레코드 정보 확인
         updated_rental = Rental.objects.get(id=rental_id)
 
         return Response({'status': updated_rental.status}, status=status.HTTP_200_OK)
