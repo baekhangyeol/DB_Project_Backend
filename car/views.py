@@ -69,6 +69,7 @@ def create_car(request, branch_id):
 def delete_car(request, pk):
     try:
         with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM car_carmaintenance WHERE car_id = %s", [pk])
             cursor.execute("SELECT options_id, car_type_id FROM car_car WHERE id = %s", [pk])
             car = cursor.fetchone()
             if not car:
