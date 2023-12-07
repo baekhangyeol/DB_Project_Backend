@@ -65,7 +65,6 @@ def create_car(request, branch_id):
 
 
 @swagger_auto_schema(method='delete', operation_summary='차량을 삭제한다.')
-@transaction.atomic
 @api_view(['DELETE'])
 def delete_car(request, pk):
     try:
@@ -322,6 +321,7 @@ def create_car_maintenance(request, pk):
     except Exception as e:
         transaction.rollback()
         return Response({'message': '서버 에러 발생', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @swagger_auto_schema(method='delete', operation_summary='차량 정비 이력을 삭제한다.')
 @api_view(['DELETE'])

@@ -35,6 +35,7 @@ class CarCreateSerializer(serializers.ModelSerializer):
         car = Car.objects.create(car_type=car_type, options=options, **validated_data)
         return car
 
+
 class CarUpdateSerializer(serializers.ModelSerializer):
     car_type = CarTypeSerializer()
     options = CarOptionSerializer()
@@ -62,6 +63,7 @@ class CarUpdateSerializer(serializers.ModelSerializer):
                 options_serializer.save()
 
         return instance
+
 
 class CarMaintenanceCreateSerializer(serializers.ModelSerializer):
     class Meta:

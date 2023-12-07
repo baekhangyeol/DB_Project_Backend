@@ -7,6 +7,7 @@ class WageSerializer(serializers.ModelSerializer):
         model = Wage
         fields = ['bank_account', 'amount']
 
+
 class EmployeeSerializer(serializers.ModelSerializer):
     wage = WageSerializer()
 
@@ -32,6 +33,7 @@ class WageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wage
         fields = ['bank_account', 'amount']
+
 
 class BranchSerializer(serializers.ModelSerializer):
     class Meta:

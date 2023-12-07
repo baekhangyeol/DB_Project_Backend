@@ -256,14 +256,12 @@ def get_branch_list(request):
 def get_branch_details(request, pk):
     try:
         with connection.cursor() as cursor:
-            # 지점 정보 조회
             cursor.execute("SELECT id, name, branch_phone_number, address FROM employee_branch WHERE id = %s", [pk])
             branch = cursor.fetchone()
 
             if not branch:
                 return Response({'message': '지점을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # 지점에 속한 직원 정보 조회
             cursor.execute("""
                 SELECT id, name, position
                 FROM employee_employee 
@@ -271,7 +269,6 @@ def get_branch_details(request, pk):
             """, [pk])
             employees = cursor.fetchall()
 
-            # 지점에 속한 차량 정보 조회
             cursor.execute("""
                 SELECT car.id, car_type.brand, car_type.size, car.availability
                 FROM car_car as car
@@ -280,10 +277,8 @@ def get_branch_details(request, pk):
             """, [pk])
             cars = cursor.fetchall()
 
-            # 직원 정보 포맷팅
             employees_list = [{'employee_id': emp[0], 'name': emp[1], 'position': emp[2]} for emp in employees]
 
-            # 차량 정보 포맷팅
             cars_list = [{
                 'car_id': car[0],
                 'brand': car[1],
