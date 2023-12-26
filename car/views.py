@@ -9,6 +9,8 @@ from .models import Car
 from .serializers import CarCreateSerializer, CarUpdateSerializer, CarMaintenanceCreateSerializer
 
 
+
+
 @swagger_auto_schema(method='post', request_body=CarCreateSerializer, operation_summary='새로운 차량을 등록한다.')
 @transaction.atomic
 @api_view(['POST'])
