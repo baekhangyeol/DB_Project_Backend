@@ -13,6 +13,10 @@ class CarTypeSerializer(serializers.ModelSerializer):
         fields = ['id', 'brand', 'size']
 
 
+
+
+
+
 class CarOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarOption
